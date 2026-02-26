@@ -208,3 +208,8 @@ __marimo__/
 
 #SOP file
 SOP.docx
+
+certs/
+*.key
+*.crt
+*.pem
