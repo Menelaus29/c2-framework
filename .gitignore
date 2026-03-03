@@ -213,3 +213,5 @@ certs/
 *.key
 *.crt
 *.pem
+
+common/config.py
