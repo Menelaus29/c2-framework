@@ -215,3 +215,5 @@ certs/
 *.pem
 
 common/config.py
+
+logs/
