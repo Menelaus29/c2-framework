@@ -148,7 +148,7 @@ async def _handle_task_pull(session_id: str) -> dict:
 
     await session_mgr.update_last_seen(session_id, db)
 
-    task = await cmd_queue.peek_task(session_id)
+    task = await cmd_queue.peek_task(session_id, db=db)
 
     if task:
         await cmd_queue.mark_dispatched(task.task_id, db)

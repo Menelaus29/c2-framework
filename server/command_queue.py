@@ -1,6 +1,7 @@
 import asyncio
 import time
 import uuid
+import json
 from dataclasses import dataclass, field
 from enum import Enum
 
@@ -63,7 +64,6 @@ class CommandQueue:
             await queue.put(task)
             self._tasks[task.task_id] = task
 
-        import json
         await db.insert_task(
             task_id    = task.task_id,
             session_id = session_id,
@@ -79,28 +79,46 @@ class CommandQueue:
         })
         return task.task_id
 
-    async def peek_task(self, session_id: str) -> Task | None:
-        # Return next PENDING task for session without removing it; None if empty
+    async def peek_task(self, session_id: str, db: Database = None) -> Task | None:
         async with self._lock:
             queue = self._queues.get(session_id)
-            if not queue or queue.empty():
-                return None
 
-            # Drain and re-queue until a PENDING task is found
-            checked = []
-            found   = None
+            if queue and not queue.empty():
+                for task in queue._queue:
+                    if task.status == TaskStatus.PENDING:
+                        return task
 
-            while not queue.empty():
-                task = queue.get_nowait()
-                if task.status == TaskStatus.PENDING and found is None:
-                    found = task
-                checked.append(task)
+        if db is None:
+            return None
 
-            # Restore all tasks back onto the queue in original order
-            for task in checked:
-                queue.put_nowait(task)
+        row = await db.get_pending_task(session_id)
+        if row is None:
+            return None
 
-            return found
+        task = Task(
+            task_id=row["task_id"],
+            session_id=row["session_id"],
+            command=row["command"],
+            args=json.loads(row["args"]),
+            timeout_s=row["timeout_s"],
+            queued_at=row["queued_at"],
+            status=TaskStatus.PENDING,
+        )
+
+        async with self._lock:
+            if task.task_id in self._tasks:
+                return self._tasks[task.task_id]
+
+            queue = self._get_or_create_queue(session_id)
+            queue.put_nowait(task)
+            self._tasks[task.task_id] = task
+
+        logger.info(
+            'task loaded from DB into queue',
+            extra={'session_id': session_id, 'task_id': task.task_id, 'command': task.command},
+        )
+
+        return task
 
     async def mark_dispatched(self, task_id: str, db: Database) -> None:
         # Set task status to DISPATCHED in memory and in db
@@ -172,7 +190,7 @@ if __name__ == '__main__':
             print("  [OK] enqueue_task")
 
             # peek_task — should return the pending task
-            task = await cq.peek_task(sid)
+            task = await cq.peek_task(sid, db=db)
             assert task is not None,          "FAIL: peek_task returned None for non-empty queue"
             assert task.task_id   == tid,     "FAIL: peek_task returned wrong task"
             assert task.command   == 'whoami',"FAIL: command mismatch"
@@ -180,14 +198,14 @@ if __name__ == '__main__':
             print("  [OK] peek_task returns PENDING task")
 
             # peek_task is non-destructive — second peek returns same task
-            task2 = await cq.peek_task(sid)
+            task2 = await cq.peek_task(sid, db=db)
             assert task2 is not None,       "FAIL: second peek returned None"
             assert task2.task_id == tid,    "FAIL: second peek returned different task"
             print("  [OK] peek_task is non-destructive")
 
             # mark_dispatched
             await cq.mark_dispatched(tid, db)
-            task = await cq.peek_task(sid)
+            task = await cq.peek_task(sid, db=db)
             assert task is None, "FAIL: dispatched task should not appear as PENDING"
             db_row = await db.get_pending_task(sid)
             assert db_row is None, "FAIL: DB should show no PENDING tasks after dispatch"
@@ -213,7 +231,7 @@ if __name__ == '__main__':
             print("  [OK] get_tasks_for_session ordering")
 
             # peek_task returns None for unknown session
-            none_task = await cq.peek_task('nonexistent-session')
+            none_task = await cq.peek_task('nonexistent-session', db=db)
             assert none_task is None, "FAIL: peek_task should return None for unknown session"
             print("  [OK] peek_task returns None for unknown session")
 
