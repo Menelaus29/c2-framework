@@ -92,7 +92,7 @@ async def beacon(request: Request) -> Response:
 
     # Step 5 — pack and return encrypted response
     try:
-        packed = mf.pack(response_payload, config.PRE_SHARED_KEY)
+        packed = mf.pack(response_payload, session_key)
     except (ProtocolError, CryptoError) as e:
         logger.error('response pack failed', extra={'reason': str(e)})
         return JSONResponse(status_code=500, content={'error': 'internal error'})
