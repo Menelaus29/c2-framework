@@ -148,6 +148,12 @@ async def _handle_task_pull(session_id: str) -> dict:
         logger.warning('invalid session_id', extra={'session_id': session_id})
         return None
 
+    if not session.active:
+        logger.info('session deactivated — sending TERMINATE', extra={'session_id': session_id})
+        resp = mf._base_payload(mf.MSG_TERMINATE, session_id=session_id)
+        resp['payload'] = {'reason': 'session killed by operator'}
+        return resp
+
     await session_mgr.update_last_seen(session_id, db)
 
     task = await cmd_queue.peek_task(session_id, db=db)
