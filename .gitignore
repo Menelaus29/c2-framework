@@ -217,3 +217,5 @@ certs/
 common/config.py
 
 logs/
+
+*.db
