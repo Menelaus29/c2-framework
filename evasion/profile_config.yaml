@@ -1,0 +1,37 @@
+# Fields:
+#   jitter_pct   — beacon interval variance as a percentage of base interval (0 = no jitter)
+#   strategy     — jitter distribution: 'uniform' (flat random) or 'gaussian' (bell curve)
+#   padding_min  — minimum random padding bytes appended to each beacon payload
+#   padding_max  — maximum random padding bytes appended to each beacon payload
+#   header_level — HTTP header randomisation level (0=none, 1=UA only, 2=+Accept, 3=full set)
+
+active_profile: medium
+
+profiles:
+  baseline:
+    jitter_pct:   0
+    strategy:     uniform
+    padding_min:  0
+    padding_max:  0
+    header_level: 0
+
+  low:
+    jitter_pct:   10
+    strategy:     uniform
+    padding_min:  0
+    padding_max:  64
+    header_level: 1
+
+  medium:
+    jitter_pct:   20
+    strategy:     uniform
+    padding_min:  0
+    padding_max:  128
+    header_level: 2
+
+  high:
+    jitter_pct:   40
+    strategy:     gaussian
+    padding_min:  64
+    padding_max:  256
+    header_level: 3
