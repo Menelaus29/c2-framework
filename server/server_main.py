@@ -1,6 +1,7 @@
 import uvicorn
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import JSONResponse
+from contextlib import asynccontextmanager
 
 from common import config
 from common import message_format as mf
@@ -23,28 +24,26 @@ cmd_queue:   CommandQueue   = None
 
 
 # Startup / shutdown
-@app.on_event('startup')
-async def startup():
-    # Initialise DB, session manager, and command queue; restore active sessions.
+@asynccontextmanager
+async def lifespan(app):
+    # Initialise DB, session manager, and command queue on startup.
     global db, session_mgr, cmd_queue
-
     db          = Database()
     await db.__aenter__()
-
     session_mgr = SessionManager()
     cmd_queue   = CommandQueue()
-
     await session_mgr.restore_from_db(db)
     logger.info('server started', extra={'port': config.SERVER_PORT})
 
+    yield  # server runs here
 
-@app.on_event('shutdown')
-async def shutdown():
-    # Close db connection cleanly on server shutdown
+    # Shutdown — close DB connection cleanly
     if db:
         await db.__aexit__(None, None, None)
     logger.info('server stopped')
 
+
+app = FastAPI(docs_url=None, redoc_url=None, lifespan=lifespan)
 
 # Beacon endpoint
 @app.post('/beacon')
