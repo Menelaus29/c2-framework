@@ -49,7 +49,7 @@ app = FastAPI(docs_url=None, redoc_url=None, lifespan=lifespan)
 @app.post('/beacon')
 async def beacon(request: Request) -> Response:
     # Handle all inbound agent messages: CHECKIN, TASK_PULL, TASK_RESULT
-    source_ip = request.client.host
+    source_ip = request.client.host if request.client else 'unknown'
     raw_body  = await request.body()
 
     logger.info('beacon received', extra={

@@ -14,14 +14,6 @@ from server.server_main import app
 
 # Fixtures
 @pytest.fixture(scope='module')
-def event_loop():
-    # Provide a single event loop shared across all module-scoped async fixtures.
-    loop = asyncio.new_event_loop()
-    yield loop
-    loop.close()
-
-
-@pytest.fixture(scope='module')
 async def db():
     # In-memory SQLite DB — discarded after the test module finishes.
     database = Database(db_path=':memory:')

