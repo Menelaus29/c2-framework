@@ -13,6 +13,8 @@ import uuid
 
 from common.crypto import decrypt, encrypt, NONCE_SIZE_BYTES
 from common.utils import CryptoError, ProtocolError
+from evasion.padding_strat import pad, strip_padding
+from transport.traffic_profile import load_active_profile
 
 
 # Constants
@@ -45,6 +47,10 @@ def pack(payload_dict: dict, key: bytes) -> bytes:
         plaintext = json.dumps(payload_dict).encode('utf-8')
     except (TypeError, ValueError) as e:
         raise ProtocolError(f"pack: payload not JSON-serialisable: {e}") from e
+
+    # Apply padding before encryption to obscure plaintext length
+    profile   = load_active_profile()
+    plaintext = pad(plaintext, profile.padding_min, profile.padding_max)
 
     ciphertext_with_tag, nonce = encrypt(plaintext, key)
 
@@ -94,6 +100,9 @@ def unpack(raw: bytes, key: bytes) -> dict:
     ciphertext_with_tag = body[NONCE_SIZE_BYTES:]
 
     plaintext = decrypt(ciphertext_with_tag, nonce, key)   # CryptoError propagates
+
+    # Strip padding before JSON parsing
+    plaintext = strip_padding(plaintext)
 
     try:
         payload_dict = json.loads(plaintext.decode('utf-8'))
