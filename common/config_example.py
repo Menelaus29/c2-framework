@@ -50,3 +50,5 @@ BLOCKED_COMMANDS = [
 # Lab environment
 LAB_MODE_ENV_VAR  = 'LAB_MODE'
 LAB_MODE_REQUIRED = '1'
+
+BEHIND_NGINX = False  # set True when Nginx handles TLS termination

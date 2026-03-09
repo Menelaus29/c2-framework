@@ -247,11 +247,15 @@ async def catch_all(path: str) -> JSONResponse:
 
 # Entry point
 if __name__ == '__main__':
+    # When behind Nginx, run without TLS — Nginx handles termination on port 443
+    ssl_kwargs = {} if config.BEHIND_NGINX else {
+        'ssl_keyfile':  config.TLS_CERT_PATH.replace('.crt', '.key'),
+        'ssl_certfile': config.TLS_CERT_PATH,
+    }
     uvicorn.run(
         'server.server_main:app',
-        host        = '0.0.0.0',
-        port        = config.BACKEND_PORT,   # 8443 — sits behind Nginx on 443
-        ssl_keyfile  = config.TLS_CERT_PATH.replace('.crt', '.key'),
-        ssl_certfile = config.TLS_CERT_PATH,
-        log_level   = config.LOG_LEVEL.lower(),
+        host      = '0.0.0.0',
+        port      = config.BACKEND_PORT,
+        log_level = config.LOG_LEVEL.lower(),
+        **ssl_kwargs,
     )
