@@ -13,9 +13,7 @@ from server.storage import Database
 from common.crypto import get_session_key
 
 logger = get_logger('server')
-
-app = FastAPI(docs_url=None, redoc_url=None)  # disable API docs in production
-
+MAX_BEACON_SIZE = 262144  # 2^18 — accommodates max stdout+stderr plus protocol overhead
 
 # Global state — initialised at startup, shared across all requests
 db:        Database       = None
@@ -52,6 +50,15 @@ async def beacon(request: Request) -> Response:
     source_ip = request.client.host if request.client else 'unknown'
     raw_body  = await request.body()
 
+    # Reject oversized payloads early
+    if len(raw_body) > MAX_BEACON_SIZE:
+        logger.warning('payload too large', extra={
+            'source_ip': source_ip,
+            'payload_size': len(raw_body),
+            'max_allowed': MAX_BEACON_SIZE,
+        })
+        return JSONResponse(status_code=413, content={'error': 'payload too large'})
+
     logger.info('beacon received', extra={
         'source_ip':    source_ip,
         'payload_size': len(raw_body),
@@ -84,7 +91,15 @@ async def beacon(request: Request) -> Response:
         return JSONResponse(status_code=409, content={'error': 'replay detected'})
 
     # Step 4 — dispatch by message type
-    response_payload = await _dispatch(msg_type, session_id, payload, source_ip)
+    try:
+        response_payload = await _dispatch(msg_type, session_id, payload, source_ip)
+    except Exception as e:
+        logger.error('dispatch failed unexpectedly', extra={
+            'reason':     str(e),
+            'msg_type':   msg_type,
+            'session_id': session_id,
+        })
+        return JSONResponse(status_code=500, content={'error': 'internal error'})
 
     if response_payload is None:
         return JSONResponse(status_code=400, content={'error': f'unknown msg_type: {msg_type}'})

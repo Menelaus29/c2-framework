@@ -38,6 +38,20 @@ def execute(task_id: str, command: str, args: list,
     def _elapsed() -> int:
         return int((time.monotonic() - start_ms) * 1000)
 
+    # Normalise inputs — guard against None or empty values from server dispatch
+    args    = args or []
+    command = (command or '').strip()
+
+    if not command:
+        logger.warning('empty command rejected', extra={'task_id': task_id})
+        return TaskResult(
+            task_id     = task_id,
+            stdout      = '',
+            stderr      = 'BLOCKED: empty command',
+            exit_code   = 126,
+            duration_ms = _elapsed(),
+        )    
+
     # Step 1 — blocklist check
     if _is_blocked(command):
         logger.warning('blocked command rejected', extra={
