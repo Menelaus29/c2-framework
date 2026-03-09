@@ -18,10 +18,23 @@ logger = get_logger('agent')
 
 BEACON_ENDPOINT  = f'https://{config.SERVER_HOST}:{config.BACKEND_PORT}/beacon'
 
-# Back-off sequence in seconds — doubles each failure up to MAX_BACKOFF_S
-BACKOFF_SEQUENCE = [1, 2, 4, 8, 16, 32, 60]
-
 AGENT_VERSION    = '1.0.0'
+
+class BackoffManager:
+    # Manages exponential back-off state for retry logic
+
+    _SEQUENCE = [1, 2, 4, 8, 16, 32, 60]  # delay steps in seconds, capped at 60
+
+    def __init__(self):
+        self.attempts = 0
+
+    def compute_delay(self) -> float:
+        # Return the delay for the current attempt, capped at the last sequence value.
+        return float(self._SEQUENCE[min(self.attempts, len(self._SEQUENCE) - 1)])
+
+    def reset(self) -> None:
+        # Reset attempt counter after a successful operation.
+        self.attempts = 0
 
 
 # Helpers
@@ -48,23 +61,28 @@ class BeaconLoop:
     def __init__(self):
         self._session_id  = None
         self._key         = get_session_key()
-        self._backoff_idx = 0
+        self._backoff     = BackoffManager()
         self._profile     = load_active_profile()  # load once at startup
         self._sleep_fn    = get_sleep_fn(self._profile.jitter_strategy)
 
-    def _backoff_sleep(self) -> None:
-        # Sleep for the current back-off duration then advance the index.
-        duration = BACKOFF_SEQUENCE[min(self._backoff_idx, len(BACKOFF_SEQUENCE) - 1)]
+    def _backoff_sleep(self, reason: str = '') -> None:
+        # Sleep for the current back-off delay, log it, then increment attempt count.
+        delay = self._backoff.compute_delay()
         logger.warning('backing off before retry', extra={
-            'backoff_s':   duration,
-            'attempt':     self._backoff_idx + 1,
-            'session_id':  self._session_id,
+            'backoff_s':  delay,
+            'attempt':    self._backoff.attempts + 1,
+            'reason':     reason,
+            'session_id': self._session_id,
         })
-        time.sleep(duration)
-        self._backoff_idx = min(self._backoff_idx + 1, len(BACKOFF_SEQUENCE) - 1)
+        time.sleep(delay)
+        self._backoff.attempts = min(
+            self._backoff.attempts + 1,
+            len(BackoffManager._SEQUENCE) - 1,
+        )
 
     def _reset_backoff(self) -> None:
-        self._backoff_idx = 0
+        # Delegate reset to BackoffManager.
+        self._backoff.reset()
 
     def _checkin(self) -> None:
         # Send CHECKIN and store the session_id assigned by the server.
@@ -133,13 +151,13 @@ class BeaconLoop:
                 break
             except TransportError as e:
                 logger.warning('checkin failed', extra={'reason': str(e)})
-                self._backoff_sleep()
+                self._backoff_sleep(reason=str(e))
             except Exception as e:
                 logger.error('checkin unexpected error', extra={
                     'reason':    str(e),
                     'traceback': traceback.format_exc(),
                 })
-                self._backoff_sleep()
+                self._backoff_sleep(reason=str(e))
 
         # Step 2 — main beacon loop
         while True:
@@ -194,7 +212,7 @@ class BeaconLoop:
                     'reason':     str(e),
                     'session_id': self._session_id,
                 })
-                self._backoff_sleep()
+                self._backoff_sleep(reason=str(e))
 
             except Exception as e:
                 # Log unexpected errors but keep the loop running
