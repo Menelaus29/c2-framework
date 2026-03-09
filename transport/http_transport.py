@@ -7,11 +7,24 @@ from common.logger import get_logger
 from common.utils import TransportError
 from evasion.header_randomizer import get_headers
 from transport.traffic_profile import load_active_profile
+from transport.tls_wrapper import create_ssl_context
+from requests.adapters import HTTPAdapter
+from urllib3.poolmanager import PoolManager
 
 logger = get_logger('transport')
 
 REQUEST_TIMEOUT_S = 10  # hard timeout for all outbound requests
 MAX_RESPONSE_BYTES = 65536  # prevent oversized server responses
+
+class TLSAdapter(HTTPAdapter):
+    # Adapter that forces requests to use a specific SSLContext
+    def __init__(self, ssl_context):
+        self._ssl_context = ssl_context
+        super().__init__()
+
+    def init_poolmanager(self, connections, maxsize, block=False, **kwargs):
+        kwargs['ssl_context'] = self._ssl_context
+        return super().init_poolmanager(connections, maxsize, block, **kwargs)
 
 # Session factory
 def _build_session() -> requests.Session:
@@ -22,8 +35,9 @@ def _build_session() -> requests.Session:
             f'TLS cert not found at {cert_path} — '
             f'copy certs/server.crt from the Ubuntu VM'
         )
+    ctx = create_ssl_context(cert_path)
     session = requests.Session()
-    session.verify = cert_path
+    session.mount('https://', TLSAdapter(ctx))
     return session
 
 # Host validation
