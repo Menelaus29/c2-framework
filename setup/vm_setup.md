@@ -9,14 +9,14 @@ Run the following on the Ubuntu server VM to generate the self-signed certificat
       -subj "/CN=c2.lab.internal"
 
 Breakdown:
-req -x509        generate a self-signed certificate (not a CSR)
--newkey rsa:4096 generate a new 4096-bit RSA private key alongside it
--keyout          where to write the private key
--out             where to write the certificate
--days 365        certificate is valid for 1 year
--nodes           do not encrypt the private key with a passphrase
+* req -x509        generate a self-signed certificate (not a CSR)
+* -newkey rsa:4096 generate a new 4096-bit RSA private key alongside it
+* -keyout          where to write the private key
+* -out             where to write the certificate
+* -days 365        certificate is valid for 1 year
+* -nodes           do not encrypt the private key with a passphrase
                  (needed so the server can start without manual input)
--subj            set the CN (Common Name) to c2.lab.internal
+* -subj            set the CN (Common Name) to c2.lab.internal
                  skips the interactive prompts
 
 ### Certificate locations
