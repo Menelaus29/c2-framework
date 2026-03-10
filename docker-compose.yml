@@ -21,7 +21,7 @@ services:
   nginx:
     build:
       context: ./redirector
-      dockerfile: Dockefile.nginx
+      dockerfile: Dockerfile.nginx
     container_name: c2-nginx
     restart: unless-stopped
     ports:
