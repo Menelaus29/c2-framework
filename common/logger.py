@@ -2,14 +2,14 @@ import json
 import logging
 import logging.handlers
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 from common import config
 
 # Constants
 _LOG_FORMAT_VERSION = '1'  # included in every log line for future parsing
 _LOGGERS = {}               # module-level cache to avoid duplicate handlers
-
+_TZ_UTC7 = timezone(timedelta(hours=7)) # timezone for logging
 
 # JSON formatter
 class _JsonFormatter(logging.Formatter):
@@ -22,7 +22,7 @@ class _JsonFormatter(logging.Formatter):
 
     def format(self, record: logging.LogRecord) -> str:
         entry = {
-            'timestamp':  datetime.now(timezone.utc).isoformat(),
+            'timestamp':  datetime.now(_TZ_UTC7).isoformat(),
             'level':      record.levelname,
             'component':  self._component,
             'session_id': self._session_id,

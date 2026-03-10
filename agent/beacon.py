@@ -134,9 +134,10 @@ class BeaconLoop:
         )
         _send(result_payload, self._key)
 
-        logger.info('task result sent', extra={
-            'task_id':   task_id,
-            'exit_code': result.exit_code,
+        logger.info('task executed', extra={
+            'task_id':     task_id,
+            'exit_code':   result.exit_code,
+            'duration_ms': result.duration_ms,
         })
 
     def run(self) -> None:
@@ -169,12 +170,14 @@ class BeaconLoop:
                 )
 
                 # Step 2b — sleep then send TASK_PULL
+                jitter_s = round(sleep_s - config.BEACON_INTERVAL_S, 3)
                 logger.info('sleeping before beacon', extra={
-                    'sleep_s':          round(sleep_s, 2),
-                    'base_s':           config.BEACON_INTERVAL_S,
-                    'jitter_pct':       self._profile.jitter_pct,
-                    'jitter_strategy':  self._profile.jitter_strategy,
-                    'session_id':       self._session_id,
+                    'interval_s':      round(sleep_s, 2),
+                    'base_s':          config.BEACON_INTERVAL_S,
+                    'jitter_s':        jitter_s,
+                    'jitter_pct':      self._profile.jitter_pct,
+                    'jitter_strategy': self._profile.jitter_strategy,
+                    'session_id':      self._session_id,
                 })
                 time.sleep(sleep_s)
 
@@ -183,8 +186,10 @@ class BeaconLoop:
                 packed       = mf.pack(pull_payload, self._key)
 
                 logger.info('beacon sent', extra={
-                    'session_id':   self._session_id,
-                    'payload_size': len(packed),
+                    'session_id':        self._session_id,
+                    'interval_s':        round(sleep_s, 2),
+                    'jitter_s':          jitter_s,
+                    'payload_size_bytes': len(packed),
                 })
 
                 response = _send(pull_payload, self._key)

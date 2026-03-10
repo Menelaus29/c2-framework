@@ -1,6 +1,7 @@
 import os
 import platform
 import sys
+import platform, ctypes as _ctypes
 
 from common import config
 from common.logger import get_logger
@@ -135,9 +136,19 @@ def check_lab_environment() -> None:
     _check_allowed_host()
     _check_debugger()
     _check_vm()
+    debugger_detected = False
+    if platform.system() == 'Windows':
+        try:
+            debugger_detected = bool(_ctypes.windll.kernel32.IsDebuggerPresent())
+        except Exception:
+            pass
 
-    logger.info('environment checks passed', extra={'component': 'agent'})
-
+    logger.info('environment check', extra={
+        'lab_mode_set':      os.environ.get(config.LAB_MODE_ENV_VAR) == config.LAB_MODE_REQUIRED,
+        'host_allowed':      config.SERVER_HOST in config.ALLOWED_HOSTS,
+        'debugger_detected': debugger_detected,
+        'vm_detected':       bool(_check_vm()),
+    })
 
 # Self-test
 if __name__ == '__main__':
