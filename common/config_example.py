@@ -51,4 +51,5 @@ BLOCKED_COMMANDS = [
 LAB_MODE_ENV_VAR  = 'LAB_MODE'
 LAB_MODE_REQUIRED = '1'
 
-BEHIND_NGINX = False  # set True when Nginx handles TLS termination
+import os
+BEHIND_NGINX = os.environ.get('BEHIND_NGINX', '0') == '1'  # set via environment or docker compose

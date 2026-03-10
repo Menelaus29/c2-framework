@@ -1,0 +1,39 @@
+services:
+
+  c2-server:
+    build:
+      context: .          # build from project root where Dockerfile lives
+      dockerfile: Dockerfile
+    container_name: c2-server
+    restart: unless-stopped
+    volumes:
+      - ./certs:/app/certs:ro          # mount certs read-only
+      - ./common/config.py:/app/common/config.py:ro  # mount live config
+      - ./logs:/app/logs               # persist logs outside container
+    expose:
+      - "8443"             # only reachable by nginx service, not host
+    networks:
+      - c2-internal
+    environment:
+      - LAB_MODE=1
+      - BEHIND_NGINX=1
+
+  nginx:
+    image: nginx:stable-alpine
+    container_name: c2-nginx
+    restart: unless-stopped
+    ports:
+      - "443:443"          # expose HTTPS to host network
+      - "80:80"            # HTTP redirect to HTTPS
+    volumes:
+      - ./redirector/nginx_example.conf:/etc/nginx/conf.d/c2.conf:ro  # mount config
+      - ./certs:/etc/nginx/certs:ro    # nginx reads certs from this path
+      - ./redirector/site:/var/www/html:ro # fake website root
+    depends_on:
+      - c2-server
+    networks:
+      - c2-internal
+
+networks:
+  c2-internal:
+    driver: bridge         # isolated network — nginx reaches server by service name
