@@ -29,6 +29,7 @@ services:
       - ./redirector/nginx_docker.conf:/etc/nginx/conf.d/c2.conf:ro  # mount config
       - ./certs:/etc/nginx/certs:ro    # nginx reads certs from this path
       - ./redirector/site:/var/www/html:ro # fake website root
+      - /dev/null:/etc/nginx/conf.d/default.conf:ro  # disable default config
     depends_on:
       - c2-server
     networks:
