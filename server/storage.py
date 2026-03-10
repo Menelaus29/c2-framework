@@ -1,12 +1,13 @@
 import time
 import aiosqlite
+import os
 
 from common import config
 from common.logger import get_logger
 
 logger = get_logger('storage')
 
-DB_PATH = 'c2_server.db'
+DB_PATH = os.path.join(os.path.dirname(__file__), '..', 'logs', 'c2_server.db')
 NONCE_EXPIRY_SECONDS = 86400  # 24 hours
 
 
@@ -131,10 +132,8 @@ class Database:
         ) as cursor:
             return await cursor.fetchall()
 
-    # -----------------------------------------------------------------------
-    # Tasks
-    # -----------------------------------------------------------------------
 
+    # Tasks
     async def insert_task(self, task_id: str, session_id: str, command: str,
                           args: str, timeout_s: int) -> None:
         # Insert a new task row with status PENDING
