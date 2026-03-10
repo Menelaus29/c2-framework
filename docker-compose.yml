@@ -19,7 +19,9 @@ services:
       - BEHIND_NGINX=1
 
   nginx:
-    image: nginx:stable-alpine
+    build:
+      context: ./redirector
+      dockerfile: Dockefile.nginx
     container_name: c2-nginx
     restart: unless-stopped
     ports:
