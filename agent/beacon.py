@@ -16,7 +16,7 @@ from transport.traffic_profile import load_active_profile
 
 logger = get_logger('agent')
 
-BEACON_ENDPOINT  = f'https://{config.SERVER_HOST}:{config.BACKEND_PORT}/beacon'
+BEACON_ENDPOINT  = f'https://{config.SERVER_HOST}:{config.SERVER_PORT}/beacon'
 
 AGENT_VERSION    = '1.0.0'
 

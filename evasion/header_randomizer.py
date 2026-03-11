@@ -62,7 +62,7 @@ def get_headers(level: int) -> dict:
 
     # Host and Content-Type are always fixed and never shuffled
     host = config.SERVER_HOST
-    port = config.BACKEND_PORT
+    port = config.SERVER_PORT
 
     # Include port if non-standard
     if port not in (80, 443):
@@ -100,8 +100,8 @@ if __name__ == '__main__':
             f"FAIL: wrong Content-Type at level {level}"
 
         expected_host = config.SERVER_HOST
-        if config.BACKEND_PORT not in (80, 443):
-            expected_host = f"{config.SERVER_HOST}:{config.BACKEND_PORT}"
+        if config.SERVER_PORT not in (80, 443):
+            expected_host = f"{config.SERVER_HOST}:{config.SERVER_PORT}"
 
         assert headers['Host'] == expected_host, \
             f"FAIL: wrong Host at level {level}"

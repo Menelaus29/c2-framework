@@ -134,7 +134,7 @@ if __name__ == '__main__':
 
     # Test 3 — allowed host that refuses connection raises TransportError
     # Uses a valid allowed host but a port nothing is listening on
-    original_port = config.BACKEND_PORT
+    original_port = config.SERVER_PORT
     try:
         send_beacon(f'https://192.168.100.10:19999/beacon', b'data')
         print("  FAIL: unreachable host should raise TransportError")

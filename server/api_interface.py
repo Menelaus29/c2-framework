@@ -24,7 +24,7 @@ def _banner(session_count: int) -> None:
     print()
     print('=' * 60)
     print('  C2 OPERATOR CONSOLE')
-    print(f'  Server : https://{config.SERVER_HOST}:{config.BACKEND_PORT}')
+    print(f'  Server : https://{config.SERVER_HOST}:{config.SERVER_PORT}')
     print(f'  Active sessions: {session_count}')
     print('=' * 60)
     print()
