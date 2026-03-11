@@ -4,6 +4,7 @@ import signal
 import sys
 import time
 import shutil
+import os
 
 from common.logger import get_logger
 from transport.traffic_profile import EvasionProfile
@@ -12,12 +13,22 @@ from datetime import datetime, timedelta, timezone
 logger = get_logger('traffic_capture')
 
 DEFAULT_BPF_FILTER = 'tcp port 443'
+CAPTURE_DIR = 'pcaps'
 UTC_PLUS_7 = timezone(timedelta(hours=7))
 
 def timestamp_utc7() -> str:
     # Return current timestamp formatted for filenames in UTC+7
     now = datetime.now(UTC_PLUS_7)
     return now.strftime('%Y%m%d_%H%M%S')
+
+def ensure_capture_dir() -> None:
+    # Create the capture directory if it does not already exist.
+    os.makedirs(CAPTURE_DIR, exist_ok=True)
+
+def resolve_output_path(filename: str) -> str:
+    # Ensure capture directory exists and return full path inside it.
+    ensure_capture_dir()
+    return os.path.join(CAPTURE_DIR, filename)
 
 def start_capture(
     interface:   str,
@@ -26,6 +37,7 @@ def start_capture(
 ) -> subprocess.Popen:
     if shutil.which("tcpdump") is None:
         raise RuntimeError("tcpdump not found on PATH")
+    output_file = resolve_output_path(output_file)
     # Launch tcpdump on the given interface, write raw packets to output_file.
     cmd = ['tcpdump', '-n', '-i', interface, '-w', output_file] + bpf_filter.split()
     logger.info('starting capture', extra={

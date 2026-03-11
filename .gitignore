@@ -219,3 +219,6 @@ common/config.py
 logs/
 
 *.db
+
+pcaps/
+*.flows
