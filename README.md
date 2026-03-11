@@ -146,7 +146,7 @@ Experiments were run with `BEACON_INTERVAL_S=5s` over a 180-second capture windo
 - **Entropy** is ~2.18–2.20 across all profiles: all traffic is TLS-encrypted, so packet-size entropy is not a useful cross-profile discriminator.
 - **Payload size** differences are within noise range — TLS record framing (~29 B overhead) partially obscures application-layer padding at this payload scale (~350 B total).
 
-The monotonic progression baseline → low → medium → high confirms the jitter pipeline is functioning as designed. See `experiments/result_summary.md` for full metric definitions and limitations.
+The monotonic progression baseline → low → medium → high confirms the jitter pipeline is functioning as designed. See [result_summary.md](experiments/result_summary.md) for full metric definitions and limitations.
 
 ---
 
