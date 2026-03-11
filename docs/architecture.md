@@ -112,13 +112,13 @@ independent and serve different purposes.
 
 ```mermaid
 flowchart TD
-    A["① Plaintext JSON payload\n{msg_type, session_id, nonce, timestamp, payload}\nExists in: agent memory only"]
-    B["② Padded plaintext\npad() prepends 2-byte length prefix\nAppends 0–N random bytes before encryption\nProfile-dependent: baseline = 0 bytes added\nExists in: agent memory only"]
-    C["③ AES-256-GCM encrypted body\nAEAD: ciphertext + 16-byte auth tag\n12-byte random nonce prepended\nKey = HKDF-SHA256(PSK, fixed salt)\nExists in: agent memory only"]
-    D["④ Framed binary envelope\nHeader: magic(0xC2C2) + version(0x01) + length(4 bytes)\nBody: nonce(12 bytes) + ciphertext+tag(variable)\nExists in: agent memory only"]
-    E["⑤ TLS record — wire\nEntire HTTP POST wrapped by TLS 1.2 or 1.3\nNginx presents server.crt\nAgent verifies against pinned cert via SSLContext\nExists on network wire — fully encrypted"]
-    F["⑥ Nginx — after TLS termination\nDecrypts TLS, sees raw HTTP POST\nValidates User-Agent and Content-Type\nForwards binary body unchanged to FastAPI\nNginx never sees plaintext payload\nExists on c2-internal bridge as plain HTTP"]
-    G["⑦ FastAPI — payload recovered\nunpack(): validates magic bytes + version\nChecks nonce against DB — rejects replays\nAEAD decryption verifies auth tag\nstrip_padding() removes prefix and pad bytes\nPlaintext JSON payload available in server memory"]
+    A["① Plaintext JSON payload<br/>{msg_type, session_id, nonce, timestamp, payload}<br/>Exists in: agent memory only"]
+    B["② Padded plaintext<br/>pad() prepends 2-byte length prefix<br/>Appends 0–N random bytes before encryption<br/>Profile-dependent: baseline = 0 bytes added<br/>Exists in: agent memory only"]
+    C["③ AES-256-GCM encrypted body<br/>AEAD: ciphertext + 16-byte auth tag<br/>12-byte random nonce prepended<br/>Key = HKDF-SHA256(PSK, fixed salt)<br/>Exists in: agent memory only"]
+    D["④ Framed binary envelope<br/>Header: magic(0xC2C2) + version(0x01) + length(4 bytes)<br/>Body: nonce(12 bytes) + ciphertext+tag(variable)<br/>Exists in: agent memory only"]
+    E["⑤ TLS record — wire<br/>Entire HTTP POST wrapped by TLS 1.2 or 1.3<br/>Nginx presents server.crt<br/>Agent verifies against pinned cert via SSLContext<br/>Exists on network wire — fully encrypted"]
+    F["⑥ Nginx — after TLS termination<br/>Decrypts TLS, sees raw HTTP POST<br/>Validates User-Agent and Content-Type<br/>Forwards binary body unchanged to FastAPI<br/>Nginx never sees plaintext payload<br/>Exists on c2-internal bridge as plain HTTP"]
+    G["⑦ FastAPI — payload recovered<br/>unpack(): validates magic bytes + version<br/>Checks nonce against DB — rejects replays<br/>AEAD decryption verifies auth tag<br/>strip_padding() removes prefix and pad bytes<br/>Plaintext JSON payload available in server memory"]
 
     A --> B
     B --> C
@@ -127,13 +127,13 @@ flowchart TD
     E --> F
     F --> G
 
-    style A fill:#d4edda
-    style B fill:#d4edda
-    style C fill:#f8d7da
-    style D fill:#f8d7da
-    style E fill:#d1ecf1
-    style F fill:#fff3cd
-    style G fill:#d4edda
+    style A fill:#d4edda,color:#000000
+    style B fill:#d4edda,color:#000000
+    style C fill:#f8d7da,color:#000000
+    style D fill:#f8d7da,color:#000000
+    style E fill:#d1ecf1,color:#000000
+    style F fill:#fff3cd,color:#000000
+    style G fill:#d4edda,color:#000000
 ```
 
 **Legend:**
@@ -156,25 +156,28 @@ cannot read payload content.
 ```mermaid
 graph LR
     subgraph WIN["Windows Victim VM — 192.168.100.20"]
-        AG["agent_main.py\nBeaconLoop\noutbound only"]
+        AG["agent_main.py<br/>BeaconLoop<br/>outbound only"]
     end
 
-    subgraph DOCKER["Ubuntu Server VM — 192.168.100.10\nDocker bridge network: c2-internal"]
+    subgraph DOCKER["Ubuntu Server VM — 192.168.100.10<br/>Docker bridge network: c2-internal"]
         subgraph NGINX_C["Container: c2-nginx"]
-            NX[":443 HTTPS — TLS termination\n:80 → 301 to HTTPS\nUA + Content-Type pre-filter\nServer: Apache/2.4.54 spoofed\nFake website on /\nmore_set_headers module"]
+            NX[":443 HTTPS — TLS termination<br/>:80 → 301 to HTTPS<br/>UA + Content-Type pre-filter<br/>Server: Apache/2.4.54 spoofed<br/>Fake website on /<br/>more_set_headers module"]
         end
         subgraph SERVER_C["Container: c2-server"]
-            FP["FastAPI + uvicorn\n:8443 plain HTTP\nBEHIND_NGINX=1\nLAB_MODE=1\nRuns as uid 1000"]
+            FP["FastAPI + uvicorn<br/>:8443 plain HTTP<br/>BEHIND_NGINX=1<br/>LAB_MODE=1<br/>Runs as uid 1000"]
         end
-        NX -- "proxy_pass\nhttp://c2-server:8443/beacon\nX-Real-IP forwarded\ninternal bridge only\nno TLS" --> FP
+        NX -- "proxy_pass<br/>http://c2-server:8443/beacon<br/>X-Real-IP forwarded<br/>internal bridge only<br/>no TLS" --> FP
     end
 
-    AG -- "HTTPS POST /beacon\nhttps://c2.lab.internal:443\nTLS 1.2+ pinned to server.crt\nAES-256-GCM payload inside" --> NX
+    AG -- "HTTPS POST /beacon<br/>https://c2.lab.internal:443<br/>TLS 1.2+ pinned to server.crt<br/>AES-256-GCM payload inside" --> NX
 
-    style WIN fill:#fff3cd
-    style DOCKER fill:#d1ecf1
-    style NGINX_C fill:#f8d7da
-    style SERVER_C fill:#d4edda
+    style WIN fill:#fff3cd,color:#000000
+    style DOCKER fill:#d1ecf1,color:#000000
+    style NGINX_C fill:#f8d7da,color:#000000
+    style SERVER_C fill:#d4edda,color:#000000
+    style AG fill:#fffde7,color:#000000
+    style NX fill:#fce4ec,color:#000000
+    style FP fill:#e8f5e9,color:#000000
 ```
 
 ### Bare-Metal Deployment
@@ -182,19 +185,22 @@ graph LR
 ```mermaid
 graph LR
     subgraph WIN["Windows Victim VM — 192.168.100.20"]
-        AG["agent_main.py\nBeaconLoop"]
+        AG["agent_main.py<br/>BeaconLoop"]
     end
 
     subgraph UBUNTU["Ubuntu Server VM — 192.168.100.10"]
-        NX["Nginx :443 HTTPS\n:80 → 301 to HTTPS\nUA + Content-Type pre-filter\nServer: Apache/2.4.54 spoofed\nFake website on /"]
-        FP["FastAPI + uvicorn\n:8443 plain HTTP\nBEHIND_NGINX=1 via export\nLAB_MODE=1 via export"]
-        NX -- "proxy_pass\nhttp://127.0.0.1:8443/beacon\nloopback only\nno TLS" --> FP
+        NX["Nginx :443 HTTPS<br/>:80 → 301 to HTTPS<br/>UA + Content-Type pre-filter<br/>Server: Apache/2.4.54 spoofed<br/>Fake website on /"]
+        FP["FastAPI + uvicorn<br/>:8443 plain HTTP<br/>BEHIND_NGINX=1 via export<br/>LAB_MODE=1 via export"]
+        NX -- "proxy_pass<br/>http://127.0.0.1:8443/beacon<br/>loopback only<br/>no TLS" --> FP
     end
 
-    AG -- "HTTPS POST /beacon\nhttps://c2.lab.internal:443\nTLS 1.2+ pinned to server.crt" --> NX
+    AG -- "HTTPS POST /beacon<br/>https://c2.lab.internal:443<br/>TLS 1.2+ pinned to server.crt" --> NX
 
-    style WIN fill:#fff3cd
-    style UBUNTU fill:#d1ecf1
+    style WIN fill:#fff3cd,color:#000000
+    style UBUNTU fill:#d1ecf1,color:#000000
+    style AG fill:#fffde7,color:#000000
+    style NX fill:#fce4ec,color:#000000
+    style FP fill:#e8f5e9,color:#000000
 ```
 
 ### Deployment Comparison
@@ -263,7 +269,7 @@ The framework is implemented entirely in Python 3.11 for the following reasons.
 `cryptography`), async server (`FastAPI` + `uvicorn`), synchronous HTTP client
 (`requests`), async SQLite (`aiosqlite`), and PCAP parsing (`scapy`) are all mature,
 audited Python libraries. Using them eliminates the need to implement or integrate
-any of these subsystems from scratch.
+any of these subsystems from scratch. 
 
 **Correctness of cryptographic primitives.** The PyCA `cryptography` library wraps
 OpenSSL and is the library recommended by Python's own documentation for production
