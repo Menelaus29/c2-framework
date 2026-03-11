@@ -27,6 +27,7 @@ class FlowRecord:
     packet_count:         int
     byte_count:           int
     inter_arrival_times:  list[float] = field(default_factory=list)
+    payload_sizes:        list[int]   = field(default_factory=list)
 
 
 def parse_pcap(pcap_file: str) -> list[FlowRecord]:
@@ -79,6 +80,7 @@ def parse_pcap(pcap_file: str) -> list[FlowRecord]:
         entries.sort(key=lambda x: x[0])   # sort by timestamp — not guaranteed in all PCAPs
         timestamps  = [ts   for ts, _    in entries]
         byte_counts = [size for _,  size in entries]
+        payload_sizes = byte_counts  # per-packet sizes for entropy and size feature computation
 
         start_time = timestamps[0]
         end_time   = timestamps[-1]
@@ -102,6 +104,7 @@ def parse_pcap(pcap_file: str) -> list[FlowRecord]:
             packet_count        = len(entries),
             byte_count          = sum(byte_counts),
             inter_arrival_times = iats,
+            payload_sizes       = payload_sizes,
         ))
 
     logger.info('parse complete', extra={
