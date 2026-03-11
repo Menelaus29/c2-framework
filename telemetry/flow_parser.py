@@ -37,7 +37,10 @@ def compute_beacon_iats(flows: list['FlowRecord']) -> None:
     # in the same group — capturing true beacon interval timing across TCP connections.
     groups: dict[tuple, list[FlowRecord]] = defaultdict(list)
     for flow in flows:
-        groups[(flow.dst_ip, flow.dst_port)].append(flow)
+        # Only track client-initiated flows — high ephemeral src_port connecting to a low dst_port.
+        # This excludes server-response flows (which have dst_port > 1024) from beacon IAT timing.
+        if flow.src_port > 1024 and flow.dst_port <= 1024:
+            groups[(flow.dst_ip, flow.dst_port)].append(flow)
 
     for group_flows in groups.values():
         group_flows.sort(key=lambda f: f.start_time)
