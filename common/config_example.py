@@ -16,7 +16,7 @@ BACKEND_PORT = 8443
 TLS_CERT_PATH = 'certs/server.crt'
 
 # Beacon timing
-BEACON_INTERVAL_S = 30
+BEACON_INTERVAL_S = 30 # set to 5 for experiments running
 JITTER_PCT        = 20
 
 

@@ -76,7 +76,7 @@ def run_profile(profile_name: str, interface: str = INTERFACE) -> dict | None:
     capture_proc = traffic_capture.start_capture(
         interface   = interface,
         output_file = pcap_filename,
-        bpf_filter  = f'tcp port {config.BACKEND_PORT}',
+        bpf_filter  = f'tcp port {config.SERVER_PORT}',
     )
     pcap_path = os.path.join('pcaps', pcap_filename)
 
