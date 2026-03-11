@@ -28,10 +28,29 @@ class FlowRecord:
     byte_count:           int
     inter_arrival_times:  list[float] = field(default_factory=list)
     payload_sizes:        list[int]   = field(default_factory=list)
+    beacon_iats:          list[float] = field(default_factory=list)  # inter-flow gaps to same dst
+
+
+def compute_beacon_iats(flows: list['FlowRecord']) -> None:
+    # Group flows by (dst_ip, dst_port) and assign inter-flow start_time deltas as beacon_iats.
+    # Each flow receives the IAT measured from its own start_time to the next flow's start_time
+    # in the same group — capturing true beacon interval timing across TCP connections.
+    groups: dict[tuple, list[FlowRecord]] = defaultdict(list)
+    for flow in flows:
+        groups[(flow.dst_ip, flow.dst_port)].append(flow)
+
+    for group_flows in groups.values():
+        group_flows.sort(key=lambda f: f.start_time)
+        for i in range(len(group_flows) - 1):
+            iat = round(group_flows[i + 1].start_time - group_flows[i].start_time, 6)
+            # Assign to the earlier flow so each flow carries the gap that follows it
+            group_flows[i].beacon_iats = [iat]
+
+    logger.info('beacon iats computed', extra={'groups': len(groups), 'flows': len(flows)})
 
 
 def parse_pcap(pcap_file: str) -> list[FlowRecord]:
-    # Parse a PCAP file and return one FlowRecord per 5-tuple flow.
+    # Parse a PCAP file and return one FlowRecord per 5-tuple flow, with beacon_iats populated.
     if not os.path.exists(pcap_file):
         raise FileNotFoundError(f'PCAP file not found: {pcap_file}')
 
@@ -78,8 +97,8 @@ def parse_pcap(pcap_file: str) -> list[FlowRecord]:
     flows = []
     for (src_ip, dst_ip, src_port, dst_port, protocol), entries in flow_packets.items():
         entries.sort(key=lambda x: x[0])   # sort by timestamp — not guaranteed in all PCAPs
-        timestamps  = [ts   for ts, _    in entries]
-        byte_counts = [size for _,  size in entries]
+        timestamps    = [ts   for ts, _    in entries]
+        byte_counts   = [size for _,  size in entries]
         payload_sizes = byte_counts  # per-packet sizes for entropy and size feature computation
 
         start_time = timestamps[0]
@@ -106,6 +125,8 @@ def parse_pcap(pcap_file: str) -> list[FlowRecord]:
             inter_arrival_times = iats,
             payload_sizes       = payload_sizes,
         ))
+
+    compute_beacon_iats(flows)
 
     logger.info('parse complete', extra={
         'pcap_file':     pcap_file,
