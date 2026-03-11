@@ -157,7 +157,7 @@ The monotonic progression baseline → low → medium → high confirms the jitt
 ### Step 1 — Clone the Repository (Ubuntu Server VM)
 
 ```bash
-git clone <repo-url> /home/c2server/c2-framework
+git clone https://github.com/Menelaus29/c2-framework.git /home/c2server/c2-framework
 cd /home/c2server/c2-framework
 ```
 
@@ -374,7 +374,7 @@ c2-framework/
 
 ## Security Controls
 
-The following controls are non-negotiable per SOP Section 3. They are implemented in code and must not be removed or bypassed.
+The following controls are non-negotiable. They are implemented in code and must not be removed or bypassed.
 
 | Control | Location | Description |
 |---|---|---|
