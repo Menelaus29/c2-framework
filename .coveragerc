@@ -1,0 +1,17 @@
+[report]
+exclude_lines =
+    pragma: no cover
+    if __name__ == .__main__.:
+    if TYPE_CHECKING:
+    
+[run]
+omit =
+    */agent_main.py
+    */server_main.py
+    */api_interface.py
+    */beacon.py
+    */environment_checks.py
+    */http_transport.py
+    */tls_wrapper.py
+    */agent/jitter.py
+    */config_example.py    

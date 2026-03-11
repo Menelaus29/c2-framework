@@ -1,5 +1,7 @@
 import os
 import pytest
+import cryptography.hazmat.primitives.kdf.hkdf as hkdf_module
+import cryptography.hazmat.primitives.ciphers.aead as aead_module
 
 from common.crypto import (
     derive_key,
@@ -11,6 +13,7 @@ from common.crypto import (
     TAG_SIZE_BYTES,
 )
 from common.utils import CryptoError
+
 
 # Fixtures: reused across multiple tests
 @pytest.fixture
@@ -113,6 +116,18 @@ class TestDeriveKey:
         with pytest.raises(CryptoError):
             derive_key(b'some-psk-value-here-xxxxxxxxxx', b'')
 
+    def test_internal_hkdf_failure_raises_crypto_error(self, monkeypatch):
+        # Force HKDF.derive() itself to throw to cover the general except block
+        original_derive = hkdf_module.HKDF.derive
+
+        def exploding_derive(self, key_material):
+            raise RuntimeError("simulated internal HKDF failure")
+
+        monkeypatch.setattr(hkdf_module.HKDF, 'derive', exploding_derive)
+
+        with pytest.raises(CryptoError, match="derive_key failed"):
+            derive_key(b'A' * 32, b'some-salt')       
+
 
 # encrypt tests
 class TestEncrypt:
@@ -200,6 +215,19 @@ class TestEncrypt:
 
             assert len(nonce) == NONCE_SIZE_BYTES
             assert len(ciphertext) == length + TAG_SIZE_BYTES
+
+    def test_internal_aesgcm_encrypt_failure_raises_crypto_error(
+        self, valid_key, sample_plaintext, monkeypatch
+    ):
+        original_encrypt = aead_module.AESGCM.encrypt
+
+        def exploding_encrypt(self, nonce, data, aad):
+            raise RuntimeError("simulated AESGCM failure")
+
+        monkeypatch.setattr(aead_module.AESGCM, 'encrypt', exploding_encrypt)
+
+        with pytest.raises(CryptoError, match="encrypt failed"):
+            encrypt(sample_plaintext, valid_key)        
 
 
 # decrypt tests
@@ -324,6 +352,19 @@ class TestDecrypt:
 
         with pytest.raises(CryptoError):
             decrypt(garbage, nonce, valid_key)
+
+    def test_internal_aesgcm_decrypt_failure_raises_crypto_error(
+        self, valid_key, sample_plaintext, monkeypatch
+    ):
+        def exploding_decrypt(self, nonce, data, aad):
+            raise RuntimeError("simulated AESGCM failure")
+
+        monkeypatch.setattr(aead_module.AESGCM, 'decrypt', exploding_decrypt)
+
+        ciphertext, nonce = encrypt(sample_plaintext, valid_key)
+
+        with pytest.raises(CryptoError, match="decrypt failed"):
+            decrypt(ciphertext, nonce, valid_key)            
 
 
 # get_session_key tests
