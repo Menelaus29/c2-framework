@@ -155,11 +155,11 @@ cannot read payload content.
 
 ```mermaid
 graph LR
-    subgraph WIN["Windows Victim VM — 192.168.100.20"]
+    subgraph WIN["Windows Victim VM 192.168.100.20"]
         AG["agent_main.py<br/>BeaconLoop<br/>outbound only"]
     end
 
-    subgraph DOCKER["Ubuntu Server VM — 192.168.100.10<br/>Docker bridge network: c2-internal"]
+    subgraph DOCKER["Ubuntu Server VM 192.168.100.10<br/>Docker bridge network: c2-internal"]
         subgraph NGINX_C["Container: c2-nginx"]
             NX[":443 HTTPS — TLS termination<br/>:80 → 301 to HTTPS<br/>UA + Content-Type pre-filter<br/>Server: Apache/2.4.54 spoofed<br/>Fake website on /<br/>more_set_headers module"]
         end
